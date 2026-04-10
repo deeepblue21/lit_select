@@ -10,13 +10,14 @@
     <style>
         :root { --primary: #2c3e50; --accent: #ff4757; --bg: #f8f9fa; }
         
-        * { box-sizing: border-box; } /* Verhindert, dass Elemente rechts abgeschnitten werden */
+        * { box-sizing: border-box; }
 
         body { 
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
             background: var(--bg); 
             margin: 0; 
             padding-top: 110px; 
+            padding-bottom: 90px; /* Platz für den neuen Button unten */
             -webkit-tap-highlight-color: transparent;
         }
         
@@ -36,7 +37,7 @@
             border: 1px solid #ddd; 
             border-radius: 12px; 
             flex: 1; 
-            min-width: 0; /* Wichtig für Flexbox auf Mobile */
+            min-width: 0;
             outline: none; 
             font-size: 16px; 
             background: white;
@@ -48,7 +49,7 @@
             background: white; 
             border-radius: 16px; 
             display: flex; 
-            height: 180px; /* Feste Höhe für einheitlichen Look */
+            height: 180px;
             border: 1px solid rgba(0,0,0,0.05); 
             position: relative; 
             overflow: hidden; 
@@ -58,7 +59,7 @@
         .card img { 
             width: 110px; 
             height: 100%; 
-            object-fit: contain; /* Zeigt das ganze Cover ohne Abschneiden */
+            object-fit: contain; 
             background: #eee; 
             flex-shrink: 0; 
         }
@@ -68,24 +69,85 @@
         .card-title { font-weight: 800; color: var(--primary); margin: 4px 0; font-size: 1.1rem; line-height: 1.2; }
         .card-description { font-size: 13px; color: #666; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 
-        /* Overlay & Rest */
+        /* Merkliste Button Design */
+        #list-toggle {
+            position: fixed;
+            bottom: 25px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--primary);
+            color: white;
+            padding: 15px 30px;
+            border-radius: 30px;
+            font-weight: bold;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            z-index: 1100;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border: none;
+            font-size: 16px;
+        }
+
+        #list-count {
+            background: var(--accent);
+            color: white;
+            font-size: 12px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            min-width: 20px;
+        }
+
+        /* Fullscreen Liste (öffnet sich beim Klick) */
+        #floating-list { 
+            position: fixed; bottom: 0; left: 0; right: 0; 
+            background: white; border-radius: 25px 25px 0 0; 
+            box-shadow: 0 -10px 30px rgba(0,0,0,0.15); 
+            z-index: 1200; 
+            transform: translateY(100%);
+            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        #floating-list.open { transform: translateY(0); }
+
+        .list-header { 
+            background: white; 
+            color: var(--primary); 
+            padding: 20px; 
+            font-weight: bold; 
+            text-align: center; 
+            border-bottom: 1px solid #eee;
+            border-radius: 25px 25px 0 0;
+            font-size: 18px;
+        }
+
+        #list-items { list-style: none; padding: 10px; margin: 0; overflow-y: auto; flex: 1; }
+        #list-items li { 
+            padding: 15px; 
+            border-bottom: 1px solid #f5f5f5; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+        }
+
+        .close-list {
+            padding: 15px;
+            text-align: center;
+            color: var(--accent);
+            font-weight: bold;
+            cursor: pointer;
+            background: #fff;
+        }
+
+        /* Restliche Overlays */
         .overlay { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.8); align-items: center; justify-content: center; z-index: 2000; }
-        .overlay-box { background: white; padding: 25px; border-radius: 24px; width: 85%; max-height: 80vh; overflow-y: auto; position: relative; }
+        .overlay-box { background: white; padding: 25px; border-radius: 24px; width: 85%; max-height: 70vh; overflow-y: auto; position: relative; }
         .btn { padding: 14px 24px; border: none; border-radius: 12px; font-weight: bold; width: 100%; cursor: pointer; }
         .btn-secondary { background: #f0f0f0; color: #333; }
         .btn-danger { background: var(--accent); color: white; margin-top: 10px; }
-
-        #floating-list { 
-            position: fixed; bottom: 0; left: 0; right: 0; 
-            background: white; border-radius: 20px 20px 0 0; 
-            box-shadow: 0 -5px 25px rgba(0,0,0,0.1); 
-            z-index: 1000; transition: transform 0.3s;
-            transform: translateY(calc(100% - 45px));
-        }
-        #floating-list:active, #floating-list:hover { transform: translateY(0); }
-        .list-header { background: var(--primary); color: white; padding: 12px; font-weight: bold; text-align: center; border-radius: 20px 20px 0 0; }
-        #list-items { list-style: none; padding: 10px; margin: 0; max-height: 200px; overflow-y: auto; }
-        #list-items li { padding: 10px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; font-size: 14px; }
 
         .delete-trigger { 
             position: absolute; top: 8px; right: 8px; 
@@ -103,27 +165,32 @@
 
 <div class="grid" id="book-grid">Lade...</div>
 
+<button id="list-toggle" onclick="toggleList()">
+    🔖 Merkliste <span id="list-count">0</span>
+</button>
+
+<div id="floating-list">
+    <div class="list-header">Meine Auswahl</div>
+    <ul id="list-items"></ul>
+    <div class="close-list" onclick="toggleList()">Schließen</div>
+</div>
+
 <div id="info-overlay" class="overlay" onclick="this.style.display='none'">
     <div class="overlay-box" onclick="event.stopPropagation()">
         <h2 id="overlay-title"></h2>
-        <div id="overlay-author"></div>
-        <p id="overlay-text"></p>
+        <div id="overlay-author" style="color:var(--accent); font-weight:bold; font-size:12px;"></div>
+        <p id="overlay-text" style="line-height:1.5; margin-top:15px;"></p>
         <button class="btn btn-secondary" onclick="document.getElementById('info-overlay').style.display='none'">Schließen</button>
     </div>
 </div>
 
 <div id="delete-overlay" class="overlay">
     <div class="overlay-box" onclick="event.stopPropagation()">
-        <h3>Löschen?</h3>
+        <h3>Buch entfernen?</h3>
         <p id="del-modal-title" style="font-weight:bold;"></p>
         <button class="btn btn-danger" id="confirm-btn">Ja, löschen</button>
         <button class="btn btn-secondary" style="margin-top:10px;" onclick="closeDeleteModal()">Abbrechen</button>
     </div>
-</div>
-
-<div id="floating-list">
-    <div class="list-header">Merkliste ↓</div>
-    <ul id="list-items"></ul>
 </div>
 
 <script>
@@ -159,6 +226,33 @@
         `).join('');
     }
 
+    function toggleList() {
+        document.getElementById('floating-list').classList.toggle('open');
+    }
+
+    function addToList(id) {
+        const b = allBooks.find(x => x.id == id);
+        if(b && !readingList.some(x => x.id == id)) {
+            readingList.push(b);
+            updateListUI();
+            
+            // Kleiner Animationseffekt am Button
+            const btn = document.getElementById('list-toggle');
+            btn.style.transform = 'translateX(-50%) scale(1.1)';
+            setTimeout(() => btn.style.transform = 'translateX(-50%) scale(1)', 200);
+        }
+    }
+
+    function updateListUI() {
+        document.getElementById('list-count').innerText = readingList.length;
+        document.getElementById('list-items').innerHTML = readingList.map((b, i) => `
+            <li>
+                <div style="max-width:80%"><b>${b.title}</b><br><small>${b.author}</small></div>
+                <span onclick="readingList.splice(${i},1);updateListUI()" style="color:var(--accent); font-weight:bold; font-size:20px; padding:10px;">✕</span>
+            </li>
+        `).join('');
+    }
+
     function openDeleteModal(e, id) {
         e.stopPropagation();
         bookToDeleteId = id;
@@ -187,23 +281,6 @@
         document.getElementById('overlay-author').innerText = b.author;
         document.getElementById('overlay-text').innerText = b.tags || 'Keine Beschreibung.';
         document.getElementById('info-overlay').style.display = 'flex';
-    }
-
-    function addToList(id) {
-        const b = allBooks.find(x => x.id == id);
-        if(b && !readingList.some(x => x.id == id)) {
-            readingList.push(b);
-            renderList();
-        }
-    }
-
-    function renderList() {
-        document.getElementById('list-items').innerHTML = readingList.map((b, i) => `
-            <li>
-                <span><b>${b.title}</b></span>
-                <span onclick="readingList.splice(${i},1);renderList()" style="color:var(--accent); font-weight:bold; padding:5px 10px;">✕</span>
-            </li>
-        `).join('');
     }
 
     function filterBooks() {
