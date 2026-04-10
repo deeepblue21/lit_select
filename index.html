@@ -5,7 +5,7 @@
     <title>Lit Select</title>
     <link rel="apple-touch-icon" href="icon.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <style>
         :root { --primary: #2c3e50; --accent: #ff4757; --bg: #f8f9fa; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding-top: 100px; }
@@ -87,6 +87,7 @@
     let readingList = [];
     let bookToDeleteId = null;
 
+    // Initiales Laden der Daten
     async function load() {
         try {
             const res = await fetch(`${S_URL}?select=*&order=author.asc`, { 
@@ -97,6 +98,7 @@
         } catch (e) { document.getElementById('book-grid').innerText = "Fehler beim Laden."; }
     }
 
+    // Anzeige der Karten im Grid
     function render(books) {
         const grid = document.getElementById('book-grid');
         grid.innerHTML = books.map(b => `
@@ -112,6 +114,7 @@
         `).join('');
     }
 
+    // Modal zum Löschen öffnen
     function openDeleteModal(e, id) {
         e.preventDefault();
         e.stopPropagation();
@@ -123,12 +126,13 @@
         document.getElementById('delete-overlay').style.display = 'flex';
     }
 
+    // Modal schließen
     function closeDeleteModal() {
         document.getElementById('delete-overlay').style.display = 'none';
         bookToDeleteId = null;
     }
 
-    // Saubere DELETE-Funktion für lokale Nutzung
+    // Die eigentliche Lösch-Logik
     document.getElementById('confirm-btn').addEventListener('click', async () => {
         if(!bookToDeleteId) return;
         const btn = document.getElementById('confirm-btn');
@@ -140,7 +144,6 @@
                 headers: { 
                     "apikey": S_KEY, 
                     "Authorization": "Bearer "+S_KEY,
-                    // Zwingt Supabase uns zu sagen, ob WIRKLICH etwas gelöscht wurde
                     "Prefer": "return=representation" 
                 }
             });
@@ -148,57 +151,65 @@
             if (res.ok) {
                 const deletedData = await res.json();
                 
-                // HIER IST DER CHECK: Wenn Supabase ein leeres Array zurückgibt, hat die Datenbank geblockt!
                 if (deletedData.length === 0) {
-                    alert("⚠️ Supabase hat den Löschbefehl ignoriert!\n\nUrsache: Die 'Row Level Security' (RLS) in Supabase blockiert Löschvorgänge für diese Tabelle. Bitte passe die Policies in deinem Supabase-Dashboard an (siehe Anleitung im Chat).");
+                    alert("⚠️ Zugriff verweigert! Bitte prüfe die 'DELETE' Policies in deinem Supabase Dashboard unter Authentication -> Policies.");
                 } else {
-                    // Erfolgreich gelöscht
+                    // Erfolgreich: Aus lokalem Speicher entfernen und neu zeichnen
                     allBooks = allBooks.filter(x => x.id != bookToDeleteId);
-                    render(allBooks);
+                    filterBooks(); // Filtert und rendert neu
                 }
             } else {
-                alert("Verbindungsfehler beim Löschen. Status: " + res.status);
+                alert("Fehler: " + res.status);
             }
         } catch (e) { 
             console.error(e); 
+            alert("Netzwerkfehler beim Löschen.");
         }
 
         btn.innerText = "Löschen bestätigen";
         closeDeleteModal();
     });
 
-    // ... Restliche Funktionen für Overlays & Listen ...
+    // Overlay für Details öffnen
     function openOverlay(id) {
         const b = allBooks.find(x => x.id == id);
+        if(!b) return;
         document.getElementById('overlay-title').innerText = b.title;
         document.getElementById('overlay-author').innerText = b.author;
-        document.getElementById('overlay-text').innerText = b.tags || '';
+        document.getElementById('overlay-text').innerText = b.tags || 'Keine Beschreibung vorhanden.';
         document.getElementById('info-overlay').style.display = 'flex';
     }
 
+    // Zur Merkliste hinzufügen
     function addToList(id) {
         const b = allBooks.find(x => x.id == id);
-        if(!readingList.some(x => x.id == id)) {
+        if(b && !readingList.some(x => x.id == id)) {
             readingList.push(b);
             renderList();
         }
     }
 
+    // Merkliste rendern
     function renderList() {
         document.getElementById('list-items').innerHTML = readingList.map((b, i) => `
             <li>
                 <div style="font-size:11px;">
                     <b style="color:var(--accent);">${b.author}</b>: ${b.title}
                 </div>
-                <span onclick="readingList.splice(${i},1);renderList()" style="cursor:pointer; color:var(--accent); font-weight:bold;">✕</span>
+                <span onclick="readingList.splice(${i},1);renderList()" style="cursor:pointer; color:var(--accent); font-weight:bold; padding: 5px;">✕</span>
             </li>
         `).join('');
     }
 
+    // Suchfilter
     function filterBooks() {
         const a = document.getElementById('f-auth').value.toLowerCase();
         const t = document.getElementById('f-tit').value.toLowerCase();
-        render(allBooks.filter(b => b.author.toLowerCase().includes(a) && b.title.toLowerCase().includes(t)));
+        const filtered = allBooks.filter(b => 
+            b.author.toLowerCase().includes(a) && 
+            b.title.toLowerCase().includes(t)
+        );
+        render(filtered);
     }
 
     load();
