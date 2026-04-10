@@ -18,7 +18,6 @@
             -webkit-tap-highlight-color: transparent;
         }
         
-        /* Fixierter Header mit Weichzeichner */
         .search-header { 
             position: fixed; top: 0; left: 0; right: 0; 
             background: rgba(255,255,255,0.9); 
@@ -36,13 +35,12 @@
             border-radius: 12px; 
             flex: 1; 
             outline: none; 
-            font-size: 16px; /* Wichtig für iOS: Verhindert Zoom */
+            font-size: 16px; 
             background: white;
         }
 
         .grid { display: grid; grid-template-columns: 1fr; gap: 15px; padding: 15px; max-width: 800px; margin: 0 auto; }
         
-        /* Karten-Design für Mobile */
         .card { 
             background: white; 
             border-radius: 16px; 
@@ -64,75 +62,36 @@
         }
         
         .card-info { padding: 15px; display: flex; flex-direction: column; flex: 1; justify-content: flex-start; overflow: hidden; }
-        
         .card-author { color: var(--accent); font-weight: bold; font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; }
-        
-        .card-title { 
-            font-weight: 800; 
-            color: var(--primary); 
-            margin: 5px 0; 
-            font-size: 1.25rem; 
-            line-height: 1.2;
-        }
-        
-        .card-description { 
-            font-size: 14px; 
-            color: #666; 
-            line-height: 1.4; 
-            display: -webkit-box; 
-            -webkit-line-clamp: 4; 
-            -webkit-box-orient: vertical; 
-            overflow: hidden; 
-        }
+        .card-title { font-weight: 800; color: var(--primary); margin: 5px 0; font-size: 1.25rem; line-height: 1.2; }
+        .card-description { font-size: 14px; color: #666; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
 
-        /* Overlay Styles */
         .overlay { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.8); align-items: center; justify-content: center; z-index: 2000; }
-        
-        .overlay-box { 
-            background: white; 
-            padding: 25px; 
-            border-radius: 24px; 
-            width: 85%; 
-            max-width: 500px; 
-            max-height: 80vh; 
-            overflow-y: auto;
-            position: relative;
-        }
+        .overlay-box { background: white; padding: 25px; border-radius: 24px; width: 85%; max-width: 500px; max-height: 80vh; overflow-y: auto; position: relative; }
 
         .del-info-box { background: #fff5f5; padding: 15px; border-radius: 12px; margin: 15px 0; border: 1px solid #ffe3e3; }
-        
         .btn-group { display: flex; gap: 10px; justify-content: center; margin-top: 20px; }
         .btn { padding: 14px 24px; border: none; border-radius: 12px; cursor: pointer; font-weight: bold; font-size: 15px; flex: 1; }
         .btn-danger { background: var(--accent); color: white; }
         .btn-secondary { background: #f0f0f0; color: #333; }
 
-        /* Floating List am Boden für Mobile */
         #floating-list { 
             position: fixed; bottom: 0; left: 0; right: 0; 
-            background: white; 
-            border-radius: 20px 20px 0 0; 
+            background: white; border-radius: 20px 20px 0 0; 
             box-shadow: 0 -5px 25px rgba(0,0,0,0.1); 
-            z-index: 1000; 
-            transition: transform 0.3s ease;
+            z-index: 1000; transition: transform 0.3s ease;
             transform: translateY(calc(100% - 45px));
         }
         #floating-list:active, #floating-list:hover { transform: translateY(0); }
-        
         .list-header { background: var(--primary); color: white; padding: 12px; font-weight: bold; text-align: center; border-radius: 20px 20px 0 0; cursor: pointer; }
-        
         #list-items { list-style: none; padding: 10px; margin: 0; max-height: 250px; overflow-y: auto; }
         #list-items li { padding: 12px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; font-size: 14px; }
 
         .delete-trigger { 
             position: absolute; top: 10px; right: 10px; 
-            background: rgba(255,255,255,0.9); 
-            color: #999; 
-            padding: 5px 12px; 
-            border-radius: 20px; 
-            font-size: 11px; 
-            font-weight: bold;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-            z-index: 50; 
+            background: rgba(255,255,255,0.9); color: #999; 
+            padding: 5px 12px; border-radius: 20px; font-size: 11px; 
+            font-weight: bold; box-shadow: 0 2px 8px rgba(0,0,0,0.05); z-index: 50; 
         }
     </style>
 </head>
@@ -182,13 +141,21 @@
     let bookToDeleteId = null;
 
     async function load() {
+        const grid = document.getElementById('book-grid');
         try {
             const res = await fetch(`${S_URL}?select=*&order=author.asc`, { 
                 headers: { "apikey": S_KEY, "Authorization": "Bearer "+S_KEY }
             });
+            if (!res.ok) {
+                const err = await res.json();
+                grid.innerHTML = `<div style="padding:20px; color:red;">Fehler: ${err.message || res.statusText}</div>`;
+                return;
+            }
             allBooks = await res.json();
             render(allBooks);
-        } catch (e) { document.getElementById('book-grid').innerText = "Verbindung fehlgeschlagen."; }
+        } catch (e) { 
+            grid.innerHTML = `<div style="padding:20px; color:red;">Netzwerkfehler. Bitte Internet prüfen.</div>`; 
+        }
     }
 
     function render(books) {
@@ -225,4 +192,57 @@
         bookToDeleteId = null;
     }
 
-    document.getElementById('confirm-btn').addEventListener('click', async
+    document.getElementById('confirm-btn').addEventListener('click', async () => {
+        if(!bookToDeleteId) return;
+        const btn = document.getElementById('confirm-btn');
+        btn.innerText = "Lösche...";
+        try {
+            const res = await fetch(`${S_URL}?id=eq.${bookToDeleteId}`, {
+                method: 'DELETE',
+                headers: { "apikey": S_KEY, "Authorization": "Bearer "+S_KEY, "Prefer": "return=representation" }
+            });
+            if (res.ok) {
+                allBooks = allBooks.filter(x => x.id != bookToDeleteId);
+                filterBooks();
+            }
+        } catch (e) { alert("Fehler beim Löschen."); }
+        btn.innerText = "Löschen";
+        closeDeleteModal();
+    });
+
+    function openOverlay(id) {
+        const b = allBooks.find(x => x.id == id);
+        if(!b) return;
+        document.getElementById('overlay-title').innerText = b.title;
+        document.getElementById('overlay-author').innerText = b.author;
+        document.getElementById('overlay-text').innerText = b.tags || 'Keine Beschreibung vorhanden.';
+        document.getElementById('info-overlay').style.display = 'flex';
+    }
+
+    function addToList(id) {
+        const b = allBooks.find(x => x.id == id);
+        if(b && !readingList.some(x => x.id == id)) {
+            readingList.push(b);
+            renderList();
+        }
+    }
+
+    function renderList() {
+        document.getElementById('list-items').innerHTML = readingList.map((b, i) => `
+            <li>
+                <div><b>${b.author}</b><br>${b.title}</div>
+                <span onclick="readingList.splice(${i},1);renderList()" style="cursor:pointer; color:var(--accent); padding:10px;">✕</span>
+            </li>
+        `).join('');
+    }
+
+    function filterBooks() {
+        const a = document.getElementById('f-auth').value.toLowerCase();
+        const t = document.getElementById('f-tit').value.toLowerCase();
+        render(allBooks.filter(b => b.author.toLowerCase().includes(a) && b.title.toLowerCase().includes(t)));
+    }
+
+    load();
+</script>
+</body>
+</html>
