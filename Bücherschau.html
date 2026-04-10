@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>Bücherschau - Lokale Version</title>
+    <style>
+        :root { --primary: #2c3e50; --accent: #ff4757; --bg: #f8f9fa; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding-top: 100px; }
+        
+        .search-header { position: fixed; top: 0; left: 0; right: 0; background: white; padding: 20px; z-index: 1000; display: flex; gap: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .search-header input { padding: 10px; border: 1px solid #ddd; border-radius: 4px; flex: 1; outline: none; }
+
+        .grid { display: grid; grid-template-columns: 1fr; gap: 20px; padding: 20px; max-width: 800px; margin: 0 auto; }
+        
+        .card { background: white; border-radius: 8px; display: flex; height: 300px; border: 1px solid #eee; position: relative; overflow: hidden; cursor: pointer; transition: 0.2s; }
+        .card:hover { transform: translateY(-2px); border-color: var(--accent); }
+        .card img { width: 180px; height: 100%; object-fit: contain; background: #f0f0f0; border-right: 1px solid #eee; flex-shrink: 0; }
+        
+        .card-info { padding: 20px; display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+        .card-author { color: var(--accent); font-weight: bold; font-size: 11px; text-transform: uppercase; }
+        .card-title { font-weight: bold; color: var(--primary); margin: 5px 0; font-size: 1.2em; }
+        .card-description { font-size: 13px; color: #555; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 10; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; }
+
+        .overlay { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.85); align-items: center; justify-content: center; z-index: 2000; }
+        .overlay-box { background: white; padding: 30px; border-radius: 12px; position: relative; width: 90%; max-width: 450px; text-align: center; }
+
+        .del-info-box { background: #fdf2f2; padding: 15px; border-radius: 8px; margin: 15px 0; border: 1px solid #fee2e2; }
+        .btn-group { display: flex; gap: 10px; justify-content: center; margin-top: 25px; }
+        .btn { padding: 12px 24px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 14px; }
+        .btn-danger { background: var(--accent); color: white; }
+        .btn-secondary { background: #eee; color: #333; }
+
+        #floating-list { position: fixed; bottom: 20px; right: 20px; width: 300px; background: white; border-radius: 8px; box-shadow: 0 5px 20px rgba(0,0,0,0.2); z-index: 1000; overflow: hidden; }
+        .list-header { background: var(--primary); color: white; padding: 12px; font-weight: bold; text-align: center; }
+        #list-items { list-style: none; padding: 0; margin: 0; max-height: 200px; overflow-y: auto; }
+        #list-items li { padding: 10px; border-bottom: 1px solid #eee; font-size: 12px; display: flex; justify-content: space-between; align-items: center; }
+
+        .delete-trigger { position: absolute; top: 8px; right: 8px; background: white; color: #999; border: 1px solid #eee; padding: 4px 10px; border-radius: 4px; font-size: 11px; cursor: pointer; z-index: 50; }
+        .delete-trigger:hover { background: var(--accent); color: white; }
+    </style>
+</head>
+<body>
+
+<div class="search-header">
+    <input type="text" id="f-auth" placeholder="Autor..." oninput="filterBooks()">
+    <input type="text" id="f-tit" placeholder="Titel..." oninput="filterBooks()">
+</div>
+
+<div class="grid" id="book-grid">Lade Daten...</div>
+
+<div id="info-overlay" class="overlay" onclick="this.style.display='none'">
+    <div class="overlay-box" onclick="event.stopPropagation()" style="max-width: 650px; text-align: left;">
+        <h2 id="overlay-title" style="margin:0 0 5px 0;"></h2>
+        <div id="overlay-author" style="color:var(--accent); font-weight:bold; margin-bottom:20px;"></div>
+        <p id="overlay-text" style="white-space: pre-line; line-height: 1.6; max-height: 50vh; overflow-y: auto;"></p>
+        <button class="btn btn-secondary" onclick="document.getElementById('info-overlay').style.display='none'">Schließen</button>
+    </div>
+</div>
+
+<div id="delete-overlay" class="overlay">
+    <div class="overlay-box" onclick="event.stopPropagation()">
+        <h3 style="margin-top:0;">Endgültig löschen?</h3>
+        <div class="del-info-box">
+            <div id="del-modal-author" style="color:var(--accent); font-size:11px; font-weight:bold; text-transform: uppercase;"></div>
+            <div id="del-modal-title" style="font-weight:bold; font-size:1.1em; color: var(--primary);"></div>
+        </div>
+        <div class="btn-group">
+            <button class="btn btn-secondary" onclick="closeDeleteModal()">Abbrechen</button>
+            <button class="btn btn-danger" id="confirm-btn">Löschen bestätigen</button>
+        </div>
+    </div>
+</div>
+
+<div id="floating-list">
+    <div class="list-header">Will ich lesen</div>
+    <ul id="list-items"></ul>
+</div>
+
+<script>
+    const S_URL = "https://bmbpelhcjjguetenghjo.supabase.co/rest/v1/buecher";
+    const S_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJtYnBlbGhjampndWV0ZW5naGpvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxNDUxMjIsImV4cCI6MjA5MDcyMTEyMn0.JYBzOCPofCUtgEEoPMzqAT4S9LYRXEfp0xvCq50YXIY";
+    
+    let allBooks = [];
+    let readingList = [];
+    let bookToDeleteId = null;
+
+    async function load() {
+        try {
+            const res = await fetch(`${S_URL}?select=*&order=author.asc`, { 
+                headers: { "apikey": S_KEY, "Authorization": "Bearer "+S_KEY }
+            });
+            allBooks = await res.json();
+            render(allBooks);
+        } catch (e) { document.getElementById('book-grid').innerText = "Fehler beim Laden."; }
+    }
+
+    function render(books) {
+        const grid = document.getElementById('book-grid');
+        grid.innerHTML = books.map(b => `
+            <div class="card">
+                <div class="delete-trigger" onclick="openDeleteModal(event, '${b.id}')">löschen</div>
+                <img src="${b.cover_url}" onclick="addToList('${b.id}')" onerror="this.src='https://via.placeholder.com/180x300?text=Cover+fehlt'">
+                <div class="card-info" onclick="openOverlay('${b.id}')">
+                    <div class="card-author">${b.author}</div>
+                    <div class="card-title">${b.title}</div>
+                    <div class="card-description">${b.tags || ''}</div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function openDeleteModal(e, id) {
+        e.preventDefault();
+        e.stopPropagation();
+        const b = allBooks.find(x => x.id == id);
+        if(!b) return;
+        bookToDeleteId = id;
+        document.getElementById('del-modal-title').innerText = b.title;
+        document.getElementById('del-modal-author').innerText = b.author;
+        document.getElementById('delete-overlay').style.display = 'flex';
+    }
+
+    function closeDeleteModal() {
+        document.getElementById('delete-overlay').style.display = 'none';
+        bookToDeleteId = null;
+    }
+
+    // Saubere DELETE-Funktion für lokale Nutzung
+    document.getElementById('confirm-btn').addEventListener('click', async () => {
+        if(!bookToDeleteId) return;
+        const btn = document.getElementById('confirm-btn');
+        btn.innerText = "Lösche...";
+
+        try {
+            const res = await fetch(`${S_URL}?id=eq.${bookToDeleteId}`, {
+                method: 'DELETE',
+                headers: { 
+                    "apikey": S_KEY, 
+                    "Authorization": "Bearer "+S_KEY,
+                    // Zwingt Supabase uns zu sagen, ob WIRKLICH etwas gelöscht wurde
+                    "Prefer": "return=representation" 
+                }
+            });
+
+            if (res.ok) {
+                const deletedData = await res.json();
+                
+                // HIER IST DER CHECK: Wenn Supabase ein leeres Array zurückgibt, hat die Datenbank geblockt!
+                if (deletedData.length === 0) {
+                    alert("⚠️ Supabase hat den Löschbefehl ignoriert!\n\nUrsache: Die 'Row Level Security' (RLS) in Supabase blockiert Löschvorgänge für diese Tabelle. Bitte passe die Policies in deinem Supabase-Dashboard an (siehe Anleitung im Chat).");
+                } else {
+                    // Erfolgreich gelöscht
+                    allBooks = allBooks.filter(x => x.id != bookToDeleteId);
+                    render(allBooks);
+                }
+            } else {
+                alert("Verbindungsfehler beim Löschen. Status: " + res.status);
+            }
+        } catch (e) { 
+            console.error(e); 
+        }
+
+        btn.innerText = "Löschen bestätigen";
+        closeDeleteModal();
+    });
+
+    // ... Restliche Funktionen für Overlays & Listen ...
+    function openOverlay(id) {
+        const b = allBooks.find(x => x.id == id);
+        document.getElementById('overlay-title').innerText = b.title;
+        document.getElementById('overlay-author').innerText = b.author;
+        document.getElementById('overlay-text').innerText = b.tags || '';
+        document.getElementById('info-overlay').style.display = 'flex';
+    }
+
+    function addToList(id) {
+        const b = allBooks.find(x => x.id == id);
+        if(!readingList.some(x => x.id == id)) {
+            readingList.push(b);
+            renderList();
+        }
+    }
+
+    function renderList() {
+        document.getElementById('list-items').innerHTML = readingList.map((b, i) => `
+            <li>
+                <div style="font-size:11px;">
+                    <b style="color:var(--accent);">${b.author}</b>: ${b.title}
+                </div>
+                <span onclick="readingList.splice(${i},1);renderList()" style="cursor:pointer; color:var(--accent); font-weight:bold;">✕</span>
+            </li>
+        `).join('');
+    }
+
+    function filterBooks() {
+        const a = document.getElementById('f-auth').value.toLowerCase();
+        const t = document.getElementById('f-tit').value.toLowerCase();
+        render(allBooks.filter(b => b.author.toLowerCase().includes(a) && b.title.toLowerCase().includes(t)));
+    }
+
+    load();
+</script>
+</body>
+</html>
