@@ -10,16 +10,18 @@
     <style>
         :root { --primary: #2c3e50; --accent: #ff4757; --bg: #f8f9fa; }
         
+        * { box-sizing: border-box; } /* Verhindert, dass Elemente rechts abgeschnitten werden */
+
         body { 
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
             background: var(--bg); 
             margin: 0; 
-            padding-top: 130px; 
+            padding-top: 110px; 
             -webkit-tap-highlight-color: transparent;
         }
         
         .search-header { 
-            position: fixed; top: 0; left: 0; right: 0; 
+            position: fixed; top: 0; left: 0; width: 100%; 
             background: rgba(255,255,255,0.9); 
             padding: 15px; 
             z-index: 1000; 
@@ -34,6 +36,7 @@
             border: 1px solid #ddd; 
             border-radius: 12px; 
             flex: 1; 
+            min-width: 0; /* Wichtig für Flexbox auf Mobile */
             outline: none; 
             font-size: 16px; 
             background: white;
@@ -45,8 +48,7 @@
             background: white; 
             border-radius: 16px; 
             display: flex; 
-            height: auto; 
-            min-height: 200px;
+            height: 180px; /* Feste Höhe für einheitlichen Look */
             border: 1px solid rgba(0,0,0,0.05); 
             position: relative; 
             overflow: hidden; 
@@ -54,81 +56,73 @@
         }
         
         .card img { 
-            width: 120px; 
-            height: auto; 
-            object-fit: cover; 
-            background: #f0f0f0; 
+            width: 110px; 
+            height: 100%; 
+            object-fit: contain; /* Zeigt das ganze Cover ohne Abschneiden */
+            background: #eee; 
             flex-shrink: 0; 
         }
         
-        .card-info { padding: 15px; display: flex; flex-direction: column; flex: 1; justify-content: flex-start; overflow: hidden; }
-        .card-author { color: var(--accent); font-weight: bold; font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; }
-        .card-title { font-weight: 800; color: var(--primary); margin: 5px 0; font-size: 1.25rem; line-height: 1.2; }
-        .card-description { font-size: 14px; color: #666; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+        .card-info { padding: 12px; display: flex; flex-direction: column; flex: 1; justify-content: center; overflow: hidden; }
+        .card-author { color: var(--accent); font-weight: bold; font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px; }
+        .card-title { font-weight: 800; color: var(--primary); margin: 4px 0; font-size: 1.1rem; line-height: 1.2; }
+        .card-description { font-size: 13px; color: #666; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 
+        /* Overlay & Rest */
         .overlay { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.8); align-items: center; justify-content: center; z-index: 2000; }
-        .overlay-box { background: white; padding: 25px; border-radius: 24px; width: 85%; max-width: 500px; max-height: 80vh; overflow-y: auto; position: relative; }
-
-        .del-info-box { background: #fff5f5; padding: 15px; border-radius: 12px; margin: 15px 0; border: 1px solid #ffe3e3; }
-        .btn-group { display: flex; gap: 10px; justify-content: center; margin-top: 20px; }
-        .btn { padding: 14px 24px; border: none; border-radius: 12px; cursor: pointer; font-weight: bold; font-size: 15px; flex: 1; }
-        .btn-danger { background: var(--accent); color: white; }
+        .overlay-box { background: white; padding: 25px; border-radius: 24px; width: 85%; max-height: 80vh; overflow-y: auto; position: relative; }
+        .btn { padding: 14px 24px; border: none; border-radius: 12px; font-weight: bold; width: 100%; cursor: pointer; }
         .btn-secondary { background: #f0f0f0; color: #333; }
+        .btn-danger { background: var(--accent); color: white; margin-top: 10px; }
 
         #floating-list { 
             position: fixed; bottom: 0; left: 0; right: 0; 
             background: white; border-radius: 20px 20px 0 0; 
             box-shadow: 0 -5px 25px rgba(0,0,0,0.1); 
-            z-index: 1000; transition: transform 0.3s ease;
+            z-index: 1000; transition: transform 0.3s;
             transform: translateY(calc(100% - 45px));
         }
         #floating-list:active, #floating-list:hover { transform: translateY(0); }
-        .list-header { background: var(--primary); color: white; padding: 12px; font-weight: bold; text-align: center; border-radius: 20px 20px 0 0; cursor: pointer; }
-        #list-items { list-style: none; padding: 10px; margin: 0; max-height: 250px; overflow-y: auto; }
-        #list-items li { padding: 12px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; font-size: 14px; }
+        .list-header { background: var(--primary); color: white; padding: 12px; font-weight: bold; text-align: center; border-radius: 20px 20px 0 0; }
+        #list-items { list-style: none; padding: 10px; margin: 0; max-height: 200px; overflow-y: auto; }
+        #list-items li { padding: 10px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; font-size: 14px; }
 
         .delete-trigger { 
-            position: absolute; top: 10px; right: 10px; 
-            background: rgba(255,255,255,0.9); color: #999; 
-            padding: 5px 12px; border-radius: 20px; font-size: 11px; 
-            font-weight: bold; box-shadow: 0 2px 8px rgba(0,0,0,0.05); z-index: 50; 
+            position: absolute; top: 8px; right: 8px; 
+            background: rgba(255,255,255,0.8); color: #ccc; 
+            padding: 4px 8px; border-radius: 10px; font-size: 10px; z-index: 10;
         }
     </style>
 </head>
 <body>
 
 <div class="search-header">
-    <input type="text" id="f-auth" placeholder="Autor suchen..." oninput="filterBooks()">
-    <input type="text" id="f-tit" placeholder="Titel suchen..." oninput="filterBooks()">
+    <input type="text" id="f-auth" placeholder="Autor..." oninput="filterBooks()">
+    <input type="text" id="f-tit" placeholder="Titel..." oninput="filterBooks()">
 </div>
 
-<div class="grid" id="book-grid">Lade Bücherschau...</div>
+<div class="grid" id="book-grid">Lade...</div>
 
 <div id="info-overlay" class="overlay" onclick="this.style.display='none'">
     <div class="overlay-box" onclick="event.stopPropagation()">
-        <h2 id="overlay-title" style="margin:0 0 8px 0; font-size: 1.5rem;"></h2>
-        <div id="overlay-author" style="color:var(--accent); font-weight:bold; margin-bottom:15px; text-transform: uppercase; font-size: 0.8rem;"></div>
-        <p id="overlay-text" style="white-space: pre-line; line-height: 1.6; color: #444; font-size: 1.05rem;"></p>
-        <button class="btn btn-secondary" style="width: 100%; margin-top: 15px;" onclick="document.getElementById('info-overlay').style.display='none'">Schließen</button>
+        <h2 id="overlay-title"></h2>
+        <div id="overlay-author"></div>
+        <p id="overlay-text"></p>
+        <button class="btn btn-secondary" onclick="document.getElementById('info-overlay').style.display='none'">Schließen</button>
     </div>
 </div>
 
 <div id="delete-overlay" class="overlay">
     <div class="overlay-box" onclick="event.stopPropagation()">
-        <h3 style="margin-top:0;">Eintrag entfernen?</h3>
-        <div class="del-info-box">
-            <div id="del-modal-author" style="color:var(--accent); font-size:11px; font-weight:bold; text-transform: uppercase;"></div>
-            <div id="del-modal-title" style="font-weight:bold; font-size:1.1em; color: var(--primary);"></div>
-        </div>
-        <div class="btn-group">
-            <button class="btn btn-secondary" onclick="closeDeleteModal()">Abbrechen</button>
-            <button class="btn btn-danger" id="confirm-btn">Löschen</button>
-        </div>
+        <h3>Löschen?</h3>
+        <p id="del-modal-title" style="font-weight:bold;"></p>
+        <button class="btn btn-danger" id="confirm-btn">Ja, löschen</button>
+        <button class="btn btn-secondary" style="margin-top:10px;" onclick="closeDeleteModal()">Abbrechen</button>
     </div>
 </div>
 
 <div id="floating-list">
-    <div class="list-header">Will ich lesen ↓</div>
+    <div class="list-header">Merkliste ↓</div>
     <ul id="list-items"></ul>
 </div>
 
@@ -141,33 +135,21 @@
     let bookToDeleteId = null;
 
     async function load() {
-        const grid = document.getElementById('book-grid');
         try {
             const res = await fetch(`${S_URL}?select=*&order=author.asc`, { 
                 headers: { "apikey": S_KEY, "Authorization": "Bearer "+S_KEY }
             });
-            if (!res.ok) {
-                const err = await res.json();
-                grid.innerHTML = `<div style="padding:20px; color:red;">Fehler: ${err.message || res.statusText}</div>`;
-                return;
-            }
             allBooks = await res.json();
             render(allBooks);
-        } catch (e) { 
-            grid.innerHTML = `<div style="padding:20px; color:red;">Netzwerkfehler. Bitte Internet prüfen.</div>`; 
-        }
+        } catch (e) { document.getElementById('book-grid').innerText = "Fehler beim Laden."; }
     }
 
     function render(books) {
         const grid = document.getElementById('book-grid');
-        if(books.length === 0) {
-            grid.innerHTML = "<div style='text-align:center; padding:50px; color:#999;'>Keine Bücher gefunden.</div>";
-            return;
-        }
         grid.innerHTML = books.map(b => `
             <div class="card">
-                <div class="delete-trigger" onclick="openDeleteModal(event, '${b.id}')">löschen</div>
-                <img src="${b.cover_url}" onclick="addToList('${b.id}')" onerror="this.src='https://via.placeholder.com/180x300?text=Cover+fehlt'">
+                <div class="delete-trigger" onclick="openDeleteModal(event, '${b.id}')">✕</div>
+                <img src="${b.cover_url}" onclick="addToList('${b.id}')" onerror="this.src='https://via.placeholder.com/110x180?text=Cover'">
                 <div class="card-info" onclick="openOverlay('${b.id}')">
                     <div class="card-author">${b.author}</div>
                     <div class="card-title">${b.title}</div>
@@ -178,44 +160,32 @@
     }
 
     function openDeleteModal(e, id) {
-        e.preventDefault(); e.stopPropagation();
-        const b = allBooks.find(x => x.id == id);
-        if(!b) return;
+        e.stopPropagation();
         bookToDeleteId = id;
+        const b = allBooks.find(x => x.id == id);
         document.getElementById('del-modal-title').innerText = b.title;
-        document.getElementById('del-modal-author').innerText = b.author;
         document.getElementById('delete-overlay').style.display = 'flex';
     }
 
-    function closeDeleteModal() {
-        document.getElementById('delete-overlay').style.display = 'none';
-        bookToDeleteId = null;
-    }
+    function closeDeleteModal() { document.getElementById('delete-overlay').style.display = 'none'; }
 
     document.getElementById('confirm-btn').addEventListener('click', async () => {
-        if(!bookToDeleteId) return;
-        const btn = document.getElementById('confirm-btn');
-        btn.innerText = "Lösche...";
         try {
-            const res = await fetch(`${S_URL}?id=eq.${bookToDeleteId}`, {
+            await fetch(`${S_URL}?id=eq.${bookToDeleteId}`, {
                 method: 'DELETE',
-                headers: { "apikey": S_KEY, "Authorization": "Bearer "+S_KEY, "Prefer": "return=representation" }
+                headers: { "apikey": S_KEY, "Authorization": "Bearer "+S_KEY }
             });
-            if (res.ok) {
-                allBooks = allBooks.filter(x => x.id != bookToDeleteId);
-                filterBooks();
-            }
-        } catch (e) { alert("Fehler beim Löschen."); }
-        btn.innerText = "Löschen";
-        closeDeleteModal();
+            allBooks = allBooks.filter(x => x.id != bookToDeleteId);
+            filterBooks();
+            closeDeleteModal();
+        } catch (e) { alert("Löschen fehlgeschlagen."); }
     });
 
     function openOverlay(id) {
         const b = allBooks.find(x => x.id == id);
-        if(!b) return;
         document.getElementById('overlay-title').innerText = b.title;
         document.getElementById('overlay-author').innerText = b.author;
-        document.getElementById('overlay-text').innerText = b.tags || 'Keine Beschreibung vorhanden.';
+        document.getElementById('overlay-text').innerText = b.tags || 'Keine Beschreibung.';
         document.getElementById('info-overlay').style.display = 'flex';
     }
 
@@ -230,8 +200,8 @@
     function renderList() {
         document.getElementById('list-items').innerHTML = readingList.map((b, i) => `
             <li>
-                <div><b>${b.author}</b><br>${b.title}</div>
-                <span onclick="readingList.splice(${i},1);renderList()" style="cursor:pointer; color:var(--accent); padding:10px;">✕</span>
+                <span><b>${b.title}</b></span>
+                <span onclick="readingList.splice(${i},1);renderList()" style="color:var(--accent); font-weight:bold; padding:5px 10px;">✕</span>
             </li>
         `).join('');
     }
