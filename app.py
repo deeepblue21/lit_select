@@ -11,9 +11,9 @@ from tavily import TavilyClient
 # --- 1. SETUP & KONFIGURATION ---
 load_dotenv()
 app = Flask(__name__)
-CORS(app)  # Erlaubt deinem HTML-File den Zugriff auf diesen Server
+CORS(app)
 
-# API Keys aus .env
+# API Keys aus .env (Bei Render in den Dashboard-Settings eintragen!)
 O_KEY = os.getenv("OPENAI_API_KEY")
 S_URL = os.getenv("SUPABASE_URL")
 S_KEY = os.getenv("SUPABASE_KEY")
@@ -24,7 +24,7 @@ openai_client = OpenAI(api_key=O_KEY)
 supabase = create_client(S_URL, S_KEY)
 tavily = TavilyClient(api_key=T_KEY)
 
-# Header für Supabase (aus deinem Scraper)
+# Header für Supabase
 HEADERS_SB = {
     "apikey": S_KEY,
     "Authorization": f"Bearer {S_KEY}",
@@ -35,7 +35,6 @@ HEADERS_SB = {
 # --- 2. ENGINE LOGIK (REMIX) ---
 
 def get_embedding(text):
-    """Erstellt Vektoren für die Suche und Speicherung."""
     try:
         res = openai_client.embeddings.create(input=text, model="text-embedding-3-small")
         return res.data[0].embedding
@@ -44,7 +43,6 @@ def get_embedding(text):
         return None
 
 def analyze_input_book(book_title):
-    """Analysiert den Vibe des gesuchten Buches (aus deiner Engine)."""
     search = tavily.search(query=f"Buch {book_title} Genre Inhalt Autor", max_results=3)
     blob = "\n".join([r['content'] for r in search['results']])
     prompt = (
@@ -63,7 +61,6 @@ def analyze_input_book(book_title):
 # --- 3. SCRAPER LOGIK (REMIX) ---
 
 def fetch_book_metadata(title, author):
-    """Sucht Cover und Beschreibung via Google Books (aus deinem Scraper)."""
     try:
         query = f"{title} {author}"
         url = f"https://www.googleapis.com/books/v1/volumes?q={query}&maxResults=1"
@@ -76,11 +73,10 @@ def fetch_book_metadata(title, author):
     except: pass
     return "https://via.placeholder.com/110x180?text=Kein+Cover", ""
 
-# --- 4. API ENDPUNKTE (DIE SCHNITTSTELLEN) ---
+# --- 4. API ENDPUNKTE ---
 
 @app.route('/get_inspiration', methods=['POST'])
 def inspiration():
-    """Der Endpunkt für deine Suchleiste."""
     data = request.json
     user_input = data.get('query')
     print(f"🔍 Suche Inspiration für: {user_input}")
@@ -88,10 +84,8 @@ def inspiration():
     info = analyze_input_book(user_input)
     final_results = []
 
-    # 1. Datenbank-Suche (Bestand)
     try:
         vector = get_embedding(f"{info['anchor']} {info['vibe']}")
-        # Nutzt deine rpc Funktion in Supabase
         db_res = supabase.rpc('match_books', {'query_embedding': vector, 'match_threshold': 0.42, 'match_count': 5}).execute()
         
         for b in db_res.data:
@@ -103,7 +97,6 @@ def inspiration():
                 if len(final_results) >= 1: break
     except Exception as e: print(f"DB Error: {e}")
 
-    # 2. Web-Auffüllung (Tavily/GPT)
     needed = 3 - len(final_results)
     if needed > 0:
         prompt = f"Nenne {needed} moderne, anspruchsvolle Bücher wie {user_input} ({info['vibe']}). Format: Titel | Autor | Begründung"
@@ -120,7 +113,6 @@ def inspiration():
 
 @app.route('/add_book', methods=['POST'])
 def add_book():
-    """Der Endpunkt, wenn der User auf 'Aufnehmen' klickt."""
     data = request.json
     title = data.get('title')
     author = data.get('author')
@@ -141,5 +133,8 @@ def add_book():
     else:
         return jsonify({"status": "error", "message": res.text}), 400
 
+# --- ANPASSUNG FÜR RENDER ---
 if __name__ == '__main__':
-    app.run(port=5000, debug=True)
+    # Render weist einen Port über die Umgebungsvariable PORT zu
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port)
