@@ -6,3 +6,4 @@ openai
 supabase
 tavily-python
 python-dotenv
+gunicorn
