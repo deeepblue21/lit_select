@@ -245,7 +245,8 @@
         loading.style.display = 'block';
 
         try {
-            const response = await fetch(`${BACKEND_URL}/get_inspiration`, {
+            // "Trailing Slash" Geheimnis angewendet
+            const response = await fetch(`${BACKEND_URL}/get_inspiration/`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ query: input })
@@ -308,7 +309,8 @@
             btn.disabled = true;
 
             try {
-                const response = await fetch(`${BACKEND_URL}/add_book`, {
+                // "Trailing Slash" Geheimnis angewendet
+                const response = await fetch(`${BACKEND_URL}/add_book/`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ title: item.title, author: item.author })
