@@ -11,9 +11,12 @@ from tavily import TavilyClient
 # --- 1. SETUP & KONFIGURATION ---
 load_dotenv()
 app = Flask(__name__)
-CORS(app)
 
-# API Keys aus .env (Bei Render in den Dashboard-Settings eintragen!)
+# --- CORS-FIX ---
+# Erlaubt Anfragen von allen Quellen (*) und unterstützt alle gängigen Methoden
+CORS(app, resources={r"/*": {"origins": "*"}})
+
+# API Keys aus .env
 O_KEY = os.getenv("OPENAI_API_KEY")
 S_URL = os.getenv("SUPABASE_URL")
 S_KEY = os.getenv("SUPABASE_KEY")
@@ -32,7 +35,7 @@ HEADERS_SB = {
     "Prefer": "resolution=merge-duplicates"
 }
 
-# --- 2. ENGINE LOGIK (REMIX) ---
+# --- 2. ENGINE LOGIK ---
 
 def get_embedding(text):
     try:
@@ -58,7 +61,7 @@ def analyze_input_book(book_title):
         "anchor": p[2].strip(), "vibe": p[4].strip()
     }
 
-# --- 3. SCRAPER LOGIK (REMIX) ---
+# --- 3. SCRAPER LOGIK ---
 
 def fetch_book_metadata(title, author):
     try:
@@ -75,7 +78,8 @@ def fetch_book_metadata(title, author):
 
 # --- 4. API ENDPUNKTE ---
 
-@app.route('/get_inspiration', methods=['POST'])
+# strict_slashes=False erlaubt Aufrufe mit UND ohne / am Ende
+@app.route('/get_inspiration', methods=['POST'], strict_slashes=False)
 def inspiration():
     data = request.json
     user_input = data.get('query')
@@ -111,7 +115,7 @@ def inspiration():
 
     return jsonify(final_results[:3])
 
-@app.route('/add_book', methods=['POST'])
+@app.route('/add_book', methods=['POST'], strict_slashes=False)
 def add_book():
     data = request.json
     title = data.get('title')
@@ -135,6 +139,5 @@ def add_book():
 
 # --- ANPASSUNG FÜR RENDER ---
 if __name__ == '__main__':
-    # Render weist einen Port über die Umgebungsvariable PORT zu
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
