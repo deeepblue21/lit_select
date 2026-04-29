@@ -129,6 +129,7 @@
         .btn { padding: 14px 24px; border: none; border-radius: 12px; font-weight: bold; width: 100%; cursor: pointer; font-size: 16px; }
         .btn-secondary { background: #f0f0f0; color: #333; margin-top: 10px; }
         .btn-add-list { background: var(--primary); color: white; margin-top: 15px; }
+        .btn-danger { background: var(--soft-red); color: white; }
         
         .rec-item { display: flex; flex-direction: column; background: #f9f9f9; padding: 12px; border-radius: 12px; margin-top: 8px; font-size: 14px; gap: 8px; }
 
@@ -204,6 +205,7 @@
 <script>
     const S_URL = "https://bmbpelhcjjguetenghjo.supabase.co/rest/v1/buecher";
     const S_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJtYnBlbGhjampndWV0ZW5naGpvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxNDUxMjIsImV4cCI6MjA5MDcyMTEyMn0.JYBzOCPofCUtgEEoPMzqAT4S9LYRXEfp0xvCq50YXIY";
+    const BACKEND_URL = "http://127.0.0.1:5000"; 
     
     let allBooks = [];
     let readingList = [];
@@ -242,19 +244,21 @@
         btn.style.opacity = '0.5';
         loading.style.display = 'block';
 
-        setTimeout(() => {
-            const mockResults = [];
-            if(allBooks.length > 0) mockResults.push({ source: "database", id: allBooks[0].id, title: allBooks[0].title, author: allBooks[0].author, reason: "Dein Bestand enthält Bücher mit einem extrem ähnlichen Vibe und Tempo." });
-            
-            mockResults.push({ source: "live_web", title: "22 BAHNEN", author: "Caroline Wahl", isbn: "9783832182786", reason: "Dieses Debüt erzählt eine berührende Geschichte über Familie und Zusammenhalt, eingebettet in eine sommerliche Coming-of-Age-Erfahrung." });
-            mockResults.push({ source: "live_web", title: "SCHWIMMEN", author: "Lore Segal", isbn: "123456789", reason: "Ein fantastischer Roman aus der zweiten Reihe der Pop-Literatur mit lebhaftem Tempo." });
-
-            renderInspOverlay(mockResults.slice(0, 3)); 
-
+        try {
+            const response = await fetch(`${BACKEND_URL}/get_inspiration`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ query: input })
+            });
+            const results = await response.json();
+            renderInspOverlay(results);
+        } catch (e) {
+            alert("Verbindung zum Backend fehlgeschlagen. Läuft app.py?");
+        } finally {
             btn.disabled = false;
             btn.style.opacity = '1';
             loading.style.display = 'none';
-        }, 2000);
+        }
     }
 
     function renderInspOverlay(results) {
@@ -264,8 +268,8 @@
         container.innerHTML = results.map((b, i) => {
             const isDB = b.source === "database";
             const badgeClass = isDB ? "insp-badge-bestand" : "insp-badge-ki";
-            const badgeText = isDB ? "Aus deiner Liste" : "Vorschlag";
-            const btnText = isDB ? "Anzeigen" : "In die Liste aufnehmen";
+            const badgeText = isDB ? "Aus deiner Liste" : "KI-Vorschlag";
+            const btnText = isDB ? "Im Regal anzeigen" : "Ins Regal aufnehmen";
             const btnClass = isDB ? "btn-secondary insp-action-btn" : "btn-add-list insp-action-btn";
 
             return `
@@ -274,7 +278,7 @@
                     <div class="card-author" style="margin-top: 8px;">${b.author}</div>
                     <div class="card-title">${b.title}</div>
                     <div class="insp-reason">${b.reason}</div>
-                    <button class="btn ${btnClass}" onclick="handleInspAction(${i})">${btnText}</button>
+                    <button id="insp-btn-${i}" class="btn ${btnClass}" onclick="handleInspAction(${i})">${btnText}</button>
                 </div>
             `;
         }).join('');
@@ -284,9 +288,10 @@
 
     async function handleInspAction(index) {
         const item = window.currentInspResults[index];
-        document.getElementById('insp-overlay').style.display = 'none';
-
+        const btn = document.getElementById(`insp-btn-${index}`);
+        
         if(item.source === "database") {
+            document.getElementById('insp-overlay').style.display = 'none';
             if(!highlightedIds.includes(item.id)) highlightedIds.push(item.id);
             filterBooks(); 
             
@@ -299,20 +304,27 @@
             }, 100);
 
         } else {
-            const tempId = "new-" + Date.now();
-            const newBook = {
-                id: tempId,
-                title: item.title,
-                author: item.author,
-                tags: item.reason,
-                cover_url: "https://via.placeholder.com/110x180?text=Wird+geladen" 
-            };
-            
-            allBooks.unshift(newBook);
-            highlightedIds.push(tempId);
-            
-            filterBooks(); 
-            window.scrollTo({ top: 0, behavior: "smooth" }); 
+            btn.innerText = "Wird hinzugefügt...";
+            btn.disabled = true;
+
+            try {
+                const response = await fetch(`${BACKEND_URL}/add_book`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title: item.title, author: item.author })
+                });
+                const resData = await response.json();
+                
+                if(resData.status === "success") {
+                    document.getElementById('insp-overlay').style.display = 'none';
+                    await load(); // Datenbank neu laden
+                    alert(`${item.title} wurde erfolgreich hinzugefügt!`);
+                }
+            } catch (e) {
+                alert("Fehler beim Hinzufügen.");
+                btn.disabled = false;
+                btn.innerText = "Ins Regal aufnehmen";
+            }
         }
     }
 
@@ -372,7 +384,7 @@
         render(allBooks.filter(b => {
             const matchesAuthor = b.author.toLowerCase().includes(a);
             const matchesTitle = b.title.toLowerCase().includes(t);
-            const matchesTagsOrKeywords = (b.tags || '').toLowerCase().includes(searchTerm) || (b.keywords || '').toLowerCase().includes(searchTerm);
+            const matchesTagsOrKeywords = (b.tags || '').toLowerCase().includes(searchTerm);
             return matchesAuthor && matchesTitle && matchesTagsOrKeywords;
         }));
     }
