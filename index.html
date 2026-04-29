@@ -15,7 +15,7 @@
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
             background: var(--bg); 
             margin: 0; 
-            padding-top: 140px; 
+            padding-top: 190px; /* Erhöht für die zusätzliche Suchleiste */
             padding-bottom: env(safe-area-inset-bottom, 70px);
             -webkit-tap-highlight-color: transparent;
         }
@@ -23,7 +23,7 @@
         .search-header { 
             position: fixed; top: 0; padding-top: env(safe-area-inset-top, 20px); left: 0; width: 100%; 
             background: rgba(255,255,255,0.95); padding-left: 10px; padding-right: 10px; padding-bottom: 10px;
-            z-index: 1000; display: flex; flex-direction: column; gap: 5px; 
+            z-index: 1000; display: flex; flex-direction: column; gap: 8px; 
             box-shadow: 0 2px 10px rgba(0,0,0,0.05); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
         }
 
@@ -32,14 +32,38 @@
             font-weight: 900; 
             font-style: italic;
             color: var(--primary); 
-            margin-bottom: 5px; 
+            margin-bottom: 2px; 
             text-align: center;
             letter-spacing: -0.5px;
             width: 100%;
         }
 
+        /* NEU: Inspiration Suchleiste */
+        .insp-row { display: flex; gap: 5px; }
+        .insp-row input {
+            padding: 10px;
+            border: none;
+            border-bottom: 1px solid #ddd;
+            border-radius: 8px 8px 0 0;
+            flex: 1;
+            min-width: 0;
+            outline: none;
+            font-size: 14px;
+            background: #fdfdfd;
+            box-shadow: inset 0 -2px 0px rgba(0,0,0,0.02);
+            transition: all 0.2s ease;
+        }
+        .insp-row input::placeholder { color: #aaa; font-style: italic; font-weight: 300; }
+        .insp-row input:focus { border-bottom: 2px solid var(--primary); }
+        .insp-btn {
+            background: var(--primary); color: white; border: none; border-radius: 8px; 
+            padding: 0 15px; font-weight: bold; cursor: pointer; font-size: 13px; transition: 0.2s;
+        }
+        #insp-loading { display: none; font-size: 11px; color: #666; text-align: center; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
+
         .search-row { display: flex; gap: 5px; }
-        .search-header input { 
+        .search-header input.filter-input { 
             padding: 8px; 
             border: 1px solid #ddd; 
             border-radius: 8px; 
@@ -55,7 +79,13 @@
         .card { 
             background: white; border-radius: 16px; display: flex; height: 160px; 
             border: 1px solid rgba(0,0,0,0.05); position: relative; overflow: hidden; 
-            box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.03); transition: border 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        /* NEU: Highlight Rahmen für gefundene/neue Titel */
+        .highlight-border {
+            border: 2px solid #74b9ff !important;
+            box-shadow: 0 0 15px rgba(116, 185, 255, 0.4) !important;
         }
         
         .card img { width: 100px; height: 100%; object-fit: contain; background: #eee; flex-shrink: 0; }
@@ -95,22 +125,36 @@
         #list-items li { padding: 12px; border-bottom: 1px solid #f8f8f8; display: flex; justify-content: space-between; align-items: center; }
 
         .overlay { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.85); align-items: center; justify-content: center; z-index: 3000; }
-        .overlay-box { background: white; padding: 25px; border-radius: 24px; width: 90%; max-height: 80vh; overflow-y: auto; position: relative; }
+        .overlay-box { background: white; padding: 25px; border-radius: 24px; width: 90%; max-height: 85vh; overflow-y: auto; position: relative; }
         .btn { padding: 14px 24px; border: none; border-radius: 12px; font-weight: bold; width: 100%; cursor: pointer; font-size: 16px; }
         .btn-secondary { background: #f0f0f0; color: #333; margin-top: 10px; }
         .btn-add-list { background: var(--primary); color: white; margin-top: 15px; }
         
         .rec-item { display: flex; flex-direction: column; background: #f9f9f9; padding: 12px; border-radius: 12px; margin-top: 8px; font-size: 14px; gap: 8px; }
+
+        /* NEU: Inspiration Cards Styling */
+        .insp-card { background: #fcfcfc; padding: 16px; border-radius: 16px; margin-bottom: 12px; border: 1px solid #eee; text-align: left; }
+        .insp-badge-bestand { background: #e0e0e0; color: #555; padding: 4px 8px; border-radius: 6px; font-size: 9px; font-weight: 800; text-transform: uppercase; display: inline-block; }
+        .insp-badge-ki { background: #e3f2fd; color: #0984e3; padding: 4px 8px; border-radius: 6px; font-size: 9px; font-weight: 800; text-transform: uppercase; display: inline-block; }
+        .insp-reason { font-size: 12px; color: #666; margin-top: 8px; line-height: 1.4; }
+        .insp-action-btn { margin-top: 12px; padding: 12px; font-size: 14px; }
     </style>
 </head>
 <body>
 
 <div class="search-header">
     <div class="header-title">Lit Select</div>
+    
+    <div class="insp-row">
+        <input type="text" id="insp-input" placeholder="z.B. Hard Land, Benedict Wells" onkeypress="if(event.key==='Enter') startInspirationSearch()">
+        <button id="insp-btn" class="insp-btn" onclick="startInspirationSearch()">Inspiration</button>
+    </div>
+    <div id="insp-loading">Suche nach passenden Titeln...</div>
+
     <div class="search-row">
-        <input type="text" id="f-auth" placeholder="Autor..." oninput="filterBooks()">
-        <input type="text" id="f-tit" placeholder="Titel..." oninput="filterBooks()">
-        <input type="text" id="f-gen" placeholder="Schlagwort..." oninput="filterBooks()">
+        <input type="text" id="f-auth" class="filter-input" placeholder="Autor..." oninput="filterBooks()">
+        <input type="text" id="f-tit" class="filter-input" placeholder="Titel..." oninput="filterBooks()">
+        <input type="text" id="f-gen" class="filter-input" placeholder="Schlagwort..." oninput="filterBooks()">
     </div>
 </div>
 
@@ -124,6 +168,14 @@
     <div class="list-header"><span>Meine Auswahl</span><div class="close-list-btn" onclick="toggleList()">Fertig</div></div>
     <ul id="list-items"></ul>
     <div style="height: 40px;"></div>
+</div>
+
+<div id="insp-overlay" class="overlay" onclick="this.style.display='none'">
+    <div class="overlay-box" onclick="event.stopPropagation()" style="background: #f4f6f8; padding: 20px;">
+        <h3 style="margin-top: 0; color: var(--primary); text-align: center;">Deine Inspiration</h3>
+        <div id="insp-cards-container"></div>
+        <button class="btn btn-secondary" onclick="document.getElementById('insp-overlay').style.display='none'">Schließen</button>
+    </div>
 </div>
 
 <div id="info-overlay" class="overlay" onclick="this.style.display='none'">
@@ -156,10 +208,10 @@
     let allBooks = [];
     let readingList = [];
     let bookToDeleteId = null;
+    let highlightedIds = []; // Speichert IDs, die temporär blau umrandet werden sollen
 
     async function load() {
         try {
-            // Sortierung direkt in der API-Abfrage nach 'author' aufsteigend (asc)
             const res = await fetch(`${S_URL}?select=*&order=author.asc`, { headers: { "apikey": S_KEY, "Authorization": "Bearer "+S_KEY } });
             allBooks = await res.json();
             render(allBooks);
@@ -167,8 +219,9 @@
     }
 
     function render(books) {
+        // NEU: Hinzufügen der class "highlight-border" und id "book-card-{id}" für Scroll & Glow
         document.getElementById('book-grid').innerHTML = books.map(b => `
-            <div class="card">
+            <div class="card ${highlightedIds.includes(b.id) ? 'highlight-border' : ''}" id="book-card-${b.id}">
                 <div class="delete-btn" onclick="openDeleteModal(event, '${b.id}')">LÖSCHEN</div>
                 <img src="${b.cover_url}" onclick="addToList('${b.id}')" onerror="this.src='https://via.placeholder.com/110x180?text=Cover'">
                 <div class="card-info" onclick="openOverlay('${b.id}')">
@@ -179,6 +232,113 @@
             </div>`).join('');
     }
 
+    /* NEU: Logik für die Inspiration Suche */
+    async function startInspirationSearch() {
+        const input = document.getElementById('insp-input').value.trim();
+        if(!input) return;
+
+        const btn = document.getElementById('insp-btn');
+        const loading = document.getElementById('insp-loading');
+
+        // UI auf "Laden" setzen
+        btn.disabled = true;
+        btn.style.opacity = '0.5';
+        loading.style.display = 'block';
+
+        // -----------------------------------------------------------------
+        // HIER KOMMT SPÄTER DER FETCH ZUM PYTHON BACKEND REIN
+        // fetch('/api/inspiration', { method: 'POST', body: JSON.stringify({ query: input }) })
+        // -----------------------------------------------------------------
+        
+        // MOCKUP: Simuliert die Antwort der KI-Engine nach 2 Sekunden
+        setTimeout(() => {
+            // Beispiel-Datenstruktur, wie sie vom Backend kommen wird
+            const mockResults = [];
+            
+            // Versuch, 1-2 Titel aus dem Bestand als Match zu finden (Simulation)
+            if(allBooks.length > 0) mockResults.push({ source: "database", id: allBooks[0].id, title: allBooks[0].title, author: allBooks[0].author, reason: "Dein Bestand enthält Bücher mit einem extrem ähnlichen Vibe und Tempo." });
+            
+            // Füllt den Rest mit KI Vorschlägen
+            mockResults.push({ source: "live_web", title: "22 BAHNEN", author: "Caroline Wahl", isbn: "9783832182786", reason: "Dieses Debüt erzählt eine berührende Geschichte über Familie und Zusammenhalt, eingebettet in eine sommerliche Coming-of-Age-Erfahrung." });
+            mockResults.push({ source: "live_web", title: "SCHWIMMEN", author: "Lore Segal", isbn: "123456789", reason: "Ein fantastischer Roman aus der zweiten Reihe der Pop-Literatur mit lebhaftem Tempo." });
+
+            renderInspOverlay(mockResults.slice(0, 3)); // Garantiert 3 Treffer
+
+            btn.disabled = false;
+            btn.style.opacity = '1';
+            loading.style.display = 'none';
+        }, 2000);
+    }
+
+    function renderInspOverlay(results) {
+        window.currentInspResults = results; // Speichern für Button-Aktionen
+        const container = document.getElementById('insp-cards-container');
+        
+        container.innerHTML = results.map((b, i) => {
+            const isDB = b.source === "database";
+            const badgeClass = isDB ? "insp-badge-bestand" : "insp-badge-ki";
+            const badgeText = isDB ? "Aus deiner Liste" : "Vorschlag";
+            const btnText = isDB ? "Anzeigen" : "In die Liste aufnehmen";
+            const btnClass = isDB ? "btn-secondary insp-action-btn" : "btn-add-list insp-action-btn";
+
+            return `
+                <div class="insp-card">
+                    <span class="${badgeClass}">${badgeText}</span>
+                    <div class="card-author" style="margin-top: 8px;">${b.author}</div>
+                    <div class="card-title">${b.title}</div>
+                    <div class="insp-reason">${b.reason}</div>
+                    <button class="btn ${btnClass}" onclick="handleInspAction(${i})">${btnText}</button>
+                </div>
+            `;
+        }).join('');
+
+        document.getElementById('insp-overlay').style.display = 'flex';
+    }
+
+    async function handleInspAction(index) {
+        const item = window.currentInspResults[index];
+        document.getElementById('insp-overlay').style.display = 'none';
+
+        if(item.source === "database") {
+            // BESTAND: Markieren und dorthin scrollen
+            if(!highlightedIds.includes(item.id)) highlightedIds.push(item.id);
+            filterBooks(); // Rendert neu inkl. blauem Rahmen
+            
+            setTimeout(() => {
+                const card = document.getElementById('book-card-' + item.id);
+                if(card) {
+                    const offsetPosition = card.getBoundingClientRect().top + window.pageYOffset - 210; // -210 für den Header
+                    window.scrollTo({ top: offsetPosition, behavior: "smooth" });
+                }
+            }, 100);
+
+        } else {
+            // KI VORSCHLAG: Buch in Datenbank via Scraper aufnehmen
+            // -----------------------------------------------------------------
+            // HIER KOMMT SPÄTER DER FETCH ZUM PYTHON SCRAPER REIN
+            // fetch('/api/add_book', { method: 'POST', body: JSON.stringify(item) })
+            // -----------------------------------------------------------------
+            
+            // SIMULATION: Lokales Hinzufügen für sofortiges UI-Feedback
+            const tempId = "new-" + Date.now();
+            const newBook = {
+                id: tempId,
+                title: item.title,
+                author: item.author,
+                tags: item.reason,
+                cover_url: "https://via.placeholder.com/110x180?text=Wird+geladen" // Platzhalter bis Scraper Cover hat
+            };
+            
+            // Temporär GANZ OBEN in die Liste pushen
+            allBooks.unshift(newBook);
+            highlightedIds.push(tempId);
+            
+            filterBooks(); // UI updaten
+            window.scrollTo({ top: 0, behavior: "smooth" }); // Nach oben scrollen, um es zu sehen
+        }
+    }
+
+    // --- Bestehende Funktionen ---
     function toggleList() { document.getElementById('floating-list').classList.toggle('open'); }
     
     function addToList(id) {
