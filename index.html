@@ -202,10 +202,22 @@
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ query: input })
             });
-            window.currentInspResults = await response.json();
-            if(window.currentInspResults.length > 0) renderInspOverlay(window.currentInspResults);
-        } catch (e) { alert("Fehler bei der Suche."); }
-        finally { btn.disabled = false; loading.style.display = 'none'; }
+            const data = await response.json();
+            
+            if(data && data.length > 0) {
+                window.currentInspResults = data;
+                renderInspOverlay(data);
+                document.getElementById('insp-overlay').style.display = 'flex';
+            } else {
+                alert("Keine passenden Titel gefunden.");
+            }
+        } catch (e) { 
+            console.error(e);
+            alert("Fehler bei der Suche."); 
+        } finally { 
+            btn.disabled = false; 
+            loading.style.display = 'none'; 
+        }
     }
 
     function renderInspOverlay(results) {
@@ -225,7 +237,6 @@
                 <div style="font-size:12px; color: #666; margin-top:8px; line-height:1.4;">${b.reason}</div>
             </div>
         `).join('');
-        document.getElementById('insp-overlay').style.display = 'flex';
     }
 
     async function processSelection() {
