@@ -2,15 +2,14 @@ import requests
 from bs4 import BeautifulSoup
 import time
 import re
-import os # Hilft beim Finden der .env Datei
-from dotenv import load_dotenv # Lädt deine geheimen Keys
+import os
+from datetime import datetime
+from dotenv import load_dotenv
 from openai import OpenAI
 
 # --- Keys sicher aus der .env Datei laden ---
 load_dotenv() 
 O_KEY = os.getenv("OPENAI_API_KEY")
-
-# OpenAI Client mit dem geladenen Key starten
 client = OpenAI(api_key=O_KEY)
 
 # --- SETUP SUPABASE ---
@@ -31,7 +30,8 @@ UA_HEADER = {
 }
 
 def get_embedding(text):
-    """Erstellt den Vektor (Zahlenreihe) für das Buch."""
+    """Erstellt den Vektor identisch zur app.py."""
+    if not text: return None
     try:
         res = client.embeddings.create(input=text, model="text-embedding-3-small")
         return res.data[0].embedding
@@ -48,20 +48,27 @@ def is_already_in_db(titel, autor):
         return False
 
 def get_book_data(titel, autor):
+    """Holt Metadaten inkl. Spracheinschränkung (Punkt 9)."""
     try:
-        query = f"{titel} {autor}"
-        url = f"https://www.googleapis.com/books/v1/volumes?q={query}&maxResults=1"
+        query = f"intitle:{titel} inauthor:{autor}"
+        # NEU: langRestrict=de und hl=de für deutsche Metadaten
+        url = f"https://www.googleapis.com/books/v1/volumes?q={query}&maxResults=1&langRestrict=de&hl=de"
         res = requests.get(url, timeout=5).json()
         if "items" in res:
             vol = res["items"][0].get("volumeInfo", {})
             img = vol.get("imageLinks", {}).get("thumbnail", "").replace("http://", "https://")
-            if img:
-                return img, True, vol.get("description", "Belletristik")[:3000]
+            
+            # Echtes Jahr extrahieren (Punkt 7)
+            pub_date = vol.get("publishedDate", "2026")
+            year = int(pub_date[:4]) if pub_date else 2026
+            
+            description = vol.get("description", "")
+            return img, True, description, year
     except: pass
-    return None, False, ""
+    return None, False, "", 2026
 
 def start_deep_scan():
-    print("🚀 Starte sicheren Scan mit Vektoren...")
+    print("🚀 Starte synchronisierten Scan (Vektoren & DE-Metadaten)...")
     candidates = []
     count = 0
     try:
@@ -90,20 +97,30 @@ def start_deep_scan():
 
         if is_already_in_db(titel, autor_clean): continue
 
-        img, ok, tags = get_book_data(titel, autor_clean)
+        # NEU: Gibt jetzt auch das Jahr zurück
+        img, ok, tags, year = get_book_data(titel, autor_clean)
+        
         if ok:
-            print(f" 🧬 Erzeuge Vektor für: {titel}")
-            vector = get_embedding(tags) # Hier wird der Key aus der .env genutzt
+            print(f" 🧬 Erzeuge Vektor für: {titel} ({year})")
+            # Wir nutzen den Klappentext (tags) für den Vektor, wie in app.py
+            # Falls tags leer ist, nehmen wir den Titel als Backup
+            vector_input = tags if len(tags) > 10 else f"{titel} {autor_clean}"
+            vector = get_embedding(vector_input) 
+            
             buch = {
-                "title": titel[:200], "author": autor_clean[:100], "cover_url": img,
-                "year": 2026, "tags": tags, "embedding": vector
+                "title": titel[:200], 
+                "author": autor_clean[:100], 
+                "cover_url": img,
+                "year": year, # NEU: Dynamisches Jahr
+                "tags": tags[:3000], 
+                "embedding": vector
             }
             res = requests.post(S_URL, headers=HEADERS_SB, json=buch)
             if res.status_code in [200, 201]:
                 print(f"   ✅ Gespeichert: {titel}")
                 count += 1
             time.sleep(1)
-    print(f"\n🏁 Fertig! {count} neue Bücher hinzugefügt.")
+    print(f"\n🏁 Fertig! {count} neue Bücher mit Vektoren hinzugefügt.")
 
 if __name__ == "__main__":
     start_deep_scan()
