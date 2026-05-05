@@ -199,16 +199,19 @@
         try {
             const response = await fetch(`${BACKEND_URL}/get_inspiration/`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ query: input })
+                body: JSON.stringify({ vibe: input }) // GEÄNDERT: "vibe" statt "query" passend zur app.py
             });
             const data = await response.json();
             
-            if(data && Array.isArray(data) && data.length > 0) {
-                window.currentInspResults = data;
-                renderInspOverlay(data);
+            // Falls das Backend die Bücher in einem "books" Feld liefert
+            const results = data.books || data;
+
+            if(results && Array.isArray(results) && results.length > 0) {
+                window.currentInspResults = results;
+                renderInspOverlay(results);
                 document.getElementById('insp-overlay').style.display = 'flex';
             } else {
-                alert("Keine Titel im Zeitraum 2020-2026 gefunden. Versuche es mit einem anderen Begriff.");
+                alert("Keine Titel gefunden. Versuche es mit einem anderen Begriff.");
             }
         } catch (e) { 
             console.error("Search Error:", e);
@@ -249,7 +252,7 @@
                     if(!highlightedIds.includes(item.id)) highlightedIds.push(item.id);
                 } else {
                     try {
-                        const res = await fetch(`${BACKEND_URL}/add_book/`, {
+                        const res = await fetch(`${BACKEND_URL}/api/search`, { // GEÄNDERT auf api/search
                             method: 'POST', 
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ 
@@ -257,13 +260,9 @@
                                 author: item.author || "Unbekannter Autor" 
                             })
                         });
-                        if (!res.ok) throw new Error("Server Error 400");
+                        if (!res.ok) throw new Error("Server Error");
                         const data = await res.json();
-                        if(data.status === "success") {
-                            highlightedIds.push(data.book.title);
-                        }
-                        // Kleiner Delay, um Server 400 zu vermeiden
-                        await new Promise(r => setTimeout(r, 300));
+                        // Hier Logik für Erfolg falls nötig
                     } catch (e) { 
                         console.error("Add Error for " + item.title, e); 
                     }
@@ -315,7 +314,6 @@
         document.getElementById('overlay-title').innerText = b.title;
         document.getElementById('overlay-author').innerText = b.author;
         
-        // --- HIER IST DIE ANPASSUNG FÜR DEN VIBE ---
         const tagsElement = document.getElementById('overlay-text');
         if (b.tags && b.tags.includes("\n\n")) {
             let parts = b.tags.split("\n\n");
@@ -323,7 +321,6 @@
         } else {
             tagsElement.innerText = b.tags || 'Keine Beschreibung.';
         }
-        // -------------------------------------------
 
         document.getElementById('info-overlay').style.display = 'flex';
     }
