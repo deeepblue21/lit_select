@@ -203,13 +203,17 @@
 
         try {
             const response = await fetch(`${BACKEND_URL}/get_inspiration/`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ vibe: input })
             });
+            
             const data = await response.json();
-            const results = data.books || data;
+            
+            // Korrektur: Wir prüfen flexibel, ob die Daten in "books" liegen oder direkt das Array sind
+            const results = data.books || (Array.isArray(data) ? data : []);
 
-            if(results && Array.isArray(results) && results.length > 0) {
+            if(results.length > 0) {
                 window.currentInspResults = results;
                 renderInspOverlay(results);
                 document.getElementById('insp-overlay').style.display = 'flex';
