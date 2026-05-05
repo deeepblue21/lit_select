@@ -175,7 +175,12 @@
     }
 
     function render(books) {
-        const sorted = [...books].sort((a,b) => (highlightedIds.includes(b.id) ? 1 : 0) - (highlightedIds.includes(a.id) ? 1 : 0));
+        const sorted = [...books].sort((a,b) => {
+            const aHighlight = highlightedIds.includes(a.id) ? 1 : 0;
+            const bHighlight = highlightedIds.includes(b.id) ? 1 : 0;
+            return bHighlight - aHighlight;
+        });
+        
         document.getElementById('book-grid').innerHTML = sorted.map(b => `
             <div class="card ${highlightedIds.includes(b.id) ? 'highlight-border' : ''}" id="book-card-${b.id}">
                 <div class="delete-btn" onclick="openDeleteModal(event, '${b.id}')">✕ Löschen</div>
@@ -199,11 +204,9 @@
         try {
             const response = await fetch(`${BACKEND_URL}/get_inspiration/`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ vibe: input }) // GEÄNDERT: "vibe" statt "query" passend zur app.py
+                body: JSON.stringify({ vibe: input })
             });
             const data = await response.json();
-            
-            // Falls das Backend die Bücher in einem "books" Feld liefert
             const results = data.books || data;
 
             if(results && Array.isArray(results) && results.length > 0) {
@@ -211,7 +214,7 @@
                 renderInspOverlay(results);
                 document.getElementById('insp-overlay').style.display = 'flex';
             } else {
-                alert("Keine Titel gefunden. Versuche es mit einem anderen Begriff.");
+                alert("Keine Titel gefunden.");
             }
         } catch (e) { 
             console.error("Search Error:", e);
@@ -249,10 +252,10 @@
             const item = window.currentInspResults[i];
             if (document.getElementById(`check-${i}`).checked) {
                 if (item.source === "database") {
-                    if(!highlightedIds.includes(item.id)) highlightedIds.push(item.id);
+                    if(item.id && !highlightedIds.includes(item.id)) highlightedIds.push(item.id);
                 } else {
                     try {
-                        const res = await fetch(`${BACKEND_URL}/api/search`, { // GEÄNDERT auf api/search
+                        const res = await fetch(`${BACKEND_URL}/add_book/`, {
                             method: 'POST', 
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ 
@@ -260,9 +263,10 @@
                                 author: item.author || "Unbekannter Autor" 
                             })
                         });
-                        if (!res.ok) throw new Error("Server Error");
                         const data = await res.json();
-                        // Hier Logik für Erfolg falls nötig
+                        if (data.status === "success" && data.book.id) {
+                            highlightedIds.push(data.book.id);
+                        }
                     } catch (e) { 
                         console.error("Add Error for " + item.title, e); 
                     }
@@ -272,12 +276,7 @@
         
         document.getElementById('insp-overlay').style.display = 'none';
         btn.disabled = false; btn.innerText = "Auswahl hinzufügen";
-        await load();
-        
-        allBooks.forEach(b => {
-            if(highlightedIds.includes(b.title) && !highlightedIds.includes(b.id)) highlightedIds.push(b.id);
-        });
-        render(allBooks);
+        await load(); 
         window.scrollTo({ top: 0, behavior: "smooth" });
     }
 
