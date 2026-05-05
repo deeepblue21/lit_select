@@ -114,7 +114,6 @@ def get_recommendations(user_input):
     try:
         res_emb = openai_client.embeddings.create(input=f"{info['anchor']} {info['vibe']}", model="text-embedding-3-small")
         vector = res_emb.data[0].embedding
-        # Hier ist dein Threshold 0.52 und Match Count 20
         db_res = supabase.rpc('match_books', {'query_embedding': vector, 'match_threshold': 0.52, 'match_count': 20}).execute()
         
         for b in db_res.data:
@@ -125,6 +124,7 @@ def get_recommendations(user_input):
             if info['is_poetry'] != is_p: continue
             
             final_results.append({
+                "id": b.get('id'), # ÄNDERUNG: ID für Frontend-Highlighting
                 "title": b['title'], "author": b['author'], 
                 "year": b.get('year', '2024'), "tags": b.get('tags', ''),
                 "source": "database", "reason": f"Passt perfekt zum Vibe: {info['vibe']}"
@@ -143,19 +143,39 @@ def get_recommendations(user_input):
     
     return final_results[:3]
 
-# --- NEU: HARMONISIERUNG FÜR DEN SCRAPER ---
 def create_vibe_for_scraper(title, author, blurb):
     """Erstellt den Vibe-String für neue Bücher, passend zur Engine."""
     prompt = f"Analysiere das Buch '{title}' von {author}. Klappentext:\n{blurb}\n\nGib NUR eine Zeile zurück im Format: Gattung | Tempo | 3-5 Vibe-Adjektive"
     try:
         res = openai_client.chat.completions.create(model="gpt-4o", messages=[{"role": "user", "content": prompt}])
         vibe_text = res.choices[0].message.content.strip()
-        
-        # Kombiniere Vibe und Text für die Datenbank
         combined_text = f"{vibe_text}\n\n{blurb}"
-        
-        # Erstelle Vektor aus dem kombinierten Text
         res_emb = openai_client.embeddings.create(input=combined_text, model="text-embedding-3-small")
         return combined_text, res_emb.data[0].embedding
     except Exception as e:
         return blurb, None
+
+# --- NEU: SPEICHER-FUNKTION ---
+def add_book_to_database(title, author):
+    data = verify_with_catalog(title, author)
+    if not data:
+        data = {"real_title": title, "real_author": author, "year": "2024", "publisher": "Literaturverlag", "isbn": "", "cover_url": ""}
+
+    vibe_tags, embedding = create_vibe_for_scraper(data['real_title'], data['real_author'], "Neu hinzugefügter Titel")
+
+    new_row = {
+        "title": data['real_title'],
+        "author": data['real_author'],
+        "year": data['year'],
+        "publisher": data['publisher'],
+        "isbn": data['isbn'],
+        "cover_url": data['cover_url'],
+        "tags": vibe_tags,
+        "embedding": embedding
+    }
+    
+    res = supabase.table("buecher").insert(new_row).execute()
+    
+    if res.data:
+        return res.data[0]
+    raise Exception("Fehler beim Speichern")
