@@ -314,7 +314,17 @@
         if(!b) return;
         document.getElementById('overlay-title').innerText = b.title;
         document.getElementById('overlay-author').innerText = b.author;
-        document.getElementById('overlay-text').innerText = b.tags || 'Keine Beschreibung.';
+        
+        // --- HIER IST DIE ANPASSUNG FÜR DEN VIBE ---
+        const tagsElement = document.getElementById('overlay-text');
+        if (b.tags && b.tags.includes("\n\n")) {
+            let parts = b.tags.split("\n\n");
+            tagsElement.innerHTML = "<strong>Vibe:</strong> " + parts[0] + "<br><br>" + parts[1];
+        } else {
+            tagsElement.innerText = b.tags || 'Keine Beschreibung.';
+        }
+        // -------------------------------------------
+
         document.getElementById('info-overlay').style.display = 'flex';
     }
 
