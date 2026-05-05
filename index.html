@@ -41,7 +41,6 @@
             background: var(--primary); color: white; border: none; border-radius: 8px; 
             padding: 0 15px; font-weight: bold; cursor: pointer; font-size: 13px; transition: 0.2s;
         }
-        /* Matt-Effekt bei Suche */
         .insp-btn:disabled { background: #95a5a6; opacity: 0.6; cursor: not-allowed; }
 
         #insp-loading { display: none; font-size: 11px; color: #666; text-align: center; animation: pulse 1.5s infinite; }
@@ -172,7 +171,7 @@
             const res = await fetch(`${S_URL}?select=*&order=author.asc`, { headers: { "apikey": S_KEY, "Authorization": "Bearer "+S_KEY } });
             allBooks = await res.json();
             render(allBooks);
-        } catch (e) { console.error(e); }
+        } catch (e) { console.error("Load Error:", e); }
     }
 
     function render(books) {
@@ -202,10 +201,22 @@
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ query: input })
             });
-            window.currentInspResults = await response.json();
-            if(window.currentInspResults.length > 0) renderInspOverlay(window.currentInspResults);
-        } catch (e) { alert("Fehler bei der Suche."); }
-        finally { btn.disabled = false; loading.style.display = 'none'; }
+            const data = await response.json();
+            
+            if(data && Array.isArray(data) && data.length > 0) {
+                window.currentInspResults = data;
+                renderInspOverlay(data);
+                document.getElementById('insp-overlay').style.display = 'flex';
+            } else {
+                alert("Keine Titel im Zeitraum 2020-2026 gefunden. Versuche es mit einem anderen Begriff.");
+            }
+        } catch (e) { 
+            console.error("Search Error:", e);
+            alert("Verbindung zum Server fehlgeschlagen."); 
+        } finally { 
+            btn.disabled = false; 
+            loading.style.display = 'none'; 
+        }
     }
 
     function renderInspOverlay(results) {
@@ -220,12 +231,11 @@
                         ${b.source === 'database' ? 'In deiner Liste' : 'Vorschlag'}
                     </span>
                 </div>
-                <div class="card-author" style="margin-top:10px;">${b.author}</div>
-                <div class="card-title" style="font-size:15px;">${b.title}</div>
-                <div style="font-size:12px; color: #666; margin-top:8px; line-height:1.4;">${b.reason}</div>
+                <div class="card-author" style="margin-top:10px;">${b.author || 'Unbekannt'}</div>
+                <div class="card-title" style="font-size:15px;">${b.title || 'Kein Titel'}</div>
+                <div style="font-size:12px; color: #666; margin-top:8px; line-height:1.4;">${b.reason || 'Keine Beschreibung verfügbar.'}</div>
             </div>
         `).join('');
-        document.getElementById('insp-overlay').style.display = 'flex';
     }
 
     async function processSelection() {
@@ -240,12 +250,23 @@
                 } else {
                     try {
                         const res = await fetch(`${BACKEND_URL}/add_book/`, {
-                            method: 'POST', headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ title: item.title, author: item.author })
+                            method: 'POST', 
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ 
+                                title: item.title, 
+                                author: item.author || "Unbekannter Autor" 
+                            })
                         });
+                        if (!res.ok) throw new Error("Server Error 400");
                         const data = await res.json();
-                        if(data.status === "success") highlightedIds.push(data.book.title); 
-                    } catch (e) { console.error("Fehler"); }
+                        if(data.status === "success") {
+                            highlightedIds.push(data.book.title);
+                        }
+                        // Kleiner Delay, um Server 400 zu vermeiden
+                        await new Promise(r => setTimeout(r, 300));
+                    } catch (e) { 
+                        console.error("Add Error for " + item.title, e); 
+                    }
                 }
             }
         }
@@ -290,9 +311,20 @@
 
     function openOverlay(id) {
         const b = allBooks.find(x => x.id == id);
+        if(!b) return;
         document.getElementById('overlay-title').innerText = b.title;
         document.getElementById('overlay-author').innerText = b.author;
-        document.getElementById('overlay-text').innerText = b.tags || 'Keine Beschreibung.';
+        
+        // --- HIER IST DIE ANPASSUNG FÜR DEN VIBE ---
+        const tagsElement = document.getElementById('overlay-text');
+        if (b.tags && b.tags.includes("\n\n")) {
+            let parts = b.tags.split("\n\n");
+            tagsElement.innerHTML = "<strong>Vibe:</strong> " + parts[0] + "<br><br>" + parts[1];
+        } else {
+            tagsElement.innerText = b.tags || 'Keine Beschreibung.';
+        }
+        // -------------------------------------------
+
         document.getElementById('info-overlay').style.display = 'flex';
     }
 
@@ -300,7 +332,11 @@
         const a = document.getElementById('f-auth').value.toLowerCase();
         const t = document.getElementById('f-tit').value.toLowerCase();
         const s = document.getElementById('f-gen').value.toLowerCase();
-        render(allBooks.filter(b => b.author.toLowerCase().includes(a) && b.title.toLowerCase().includes(t) && (b.tags||'').toLowerCase().includes(s)));
+        render(allBooks.filter(b => 
+            (b.author||'').toLowerCase().includes(a) && 
+            (b.title||'').toLowerCase().includes(t) && 
+            (b.tags||'').toLowerCase().includes(s)
+        ));
     }
 
     load();
