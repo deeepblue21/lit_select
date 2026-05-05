@@ -24,6 +24,9 @@ def verify_with_catalog(title, author_hint=""):
             pub_date = book_info.get("publishedDate", "2024")
             year = int(pub_date[:4])
             
+            # Kurze Beschreibung (Klappentext) abrufen
+            blurb = book_info.get("description", "Keine Beschreibung verfügbar.")
+            
             if (datetime.now().year - year) > 10:
                 return None
 
@@ -36,7 +39,8 @@ def verify_with_catalog(title, author_hint=""):
                 "year": str(year),
                 "publisher": book_info.get("publisher", "Literaturverlag"),
                 "isbn": isbn,
-                "cover_url": book_info.get("imageLinks", {}).get("thumbnail", "").replace("http://", "https://")
+                "cover_url": book_info.get("imageLinks", {}).get("thumbnail", "").replace("http://", "https://"),
+                "description": blurb # NEU: Für den Klappentext
             }
     except:
         return None 
@@ -124,7 +128,7 @@ def get_recommendations(user_input):
             if info['is_poetry'] != is_p: continue
             
             final_results.append({
-                "id": b.get('id'), # ÄNDERUNG: ID für Frontend-Highlighting
+                "id": b.get('id'),
                 "title": b['title'], "author": b['author'], 
                 "year": b.get('year', '2024'), "tags": b.get('tags', ''),
                 "source": "database", "reason": f"Passt perfekt zum Vibe: {info['vibe']}"
@@ -144,7 +148,6 @@ def get_recommendations(user_input):
     return final_results[:3]
 
 def create_vibe_for_scraper(title, author, blurb):
-    """Erstellt den Vibe-String für neue Bücher, passend zur Engine."""
     prompt = f"Analysiere das Buch '{title}' von {author}. Klappentext:\n{blurb}\n\nGib NUR eine Zeile zurück im Format: Gattung | Tempo | 3-5 Vibe-Adjektive"
     try:
         res = openai_client.chat.completions.create(model="gpt-4o", messages=[{"role": "user", "content": prompt}])
@@ -155,13 +158,17 @@ def create_vibe_for_scraper(title, author, blurb):
     except Exception as e:
         return blurb, None
 
-# --- NEU: SPEICHER-FUNKTION ---
+# --- SPEICHER-FUNKTION (Optimiert) ---
 def add_book_to_database(title, author):
     data = verify_with_catalog(title, author)
+    # Wenn Daten gefunden wurden, nutzen wir die Beschreibung, sonst den Default-Text
+    blurb_to_use = data.get('description', "Neu hinzugefügter Titel") if data else "Neu hinzugefügter Titel"
+    
     if not data:
         data = {"real_title": title, "real_author": author, "year": "2024", "publisher": "Literaturverlag", "isbn": "", "cover_url": ""}
 
-    vibe_tags, embedding = create_vibe_for_scraper(data['real_title'], data['real_author'], "Neu hinzugefügter Titel")
+    # Erzeugt Vibe-Tags und Embedding basierend auf dem echten Klappentext
+    vibe_tags, embedding = create_vibe_for_scraper(data['real_title'], data['real_author'], blurb_to_use)
 
     new_row = {
         "title": data['real_title'],
