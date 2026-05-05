@@ -9,10 +9,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4 # Aktualisiert auf v4 (Node 24 kompatibel)
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5 # Aktualisiert auf v5 (Node 24 kompatibel)
         with:
           python-version: '3.10'
 
