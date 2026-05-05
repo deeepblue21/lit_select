@@ -38,7 +38,8 @@ def get_inspiration():
     query = data.get("vibe") or data.get("title") or ""
     try:
         results = get_recommendations(query)
-        return jsonify(results) 
+        # GEÄNDERT: Ergebnisse in "books" Feld einpacken für das Frontend
+        return jsonify({"books": results}) 
     except Exception as e:
         print(f"Error: {str(e)}")
         return jsonify({"error": str(e)}), 500
