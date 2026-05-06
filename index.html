@@ -32,7 +32,7 @@
             margin-bottom: 2px; text-align: center; letter-spacing: -0.5px; width: 100%;
         }
 
-        .insp-row { display: flex; gap: 5px; }
+        .insp-row { display: flex; gap: 5px; align-items: stretch; } /* Bessere Ausrichtung */
         .insp-row input {
             padding: 10px; border: none; border-bottom: 1px solid #ddd; border-radius: 8px 8px 0 0;
             flex: 1; min-width: 0; outline: none; font-size: 14px; background: #fdfdfd;
@@ -40,6 +40,7 @@
         .insp-btn {
             background: var(--primary); color: white; border: none; border-radius: 8px; 
             padding: 0 15px; font-weight: bold; cursor: pointer; font-size: 13px; transition: 0.2s;
+            height: 38px; align-self: flex-start; /* Passt den Button an die Input-Höhe an */
         }
         .insp-btn:disabled { background: #95a5a6; opacity: 0.6; cursor: not-allowed; }
 
@@ -116,8 +117,7 @@
     </div>
     <div id="insp-loading">Suche nach passenden Titeln...</div>
     <div class="search-row">
-        <input type="text" id="f-auth" class="filter-input" placeholder="Autor..." oninput="filterBooks()">
-        <input type="text" id="f-tit" class="filter-input" placeholder="Titel..." oninput="filterBooks()">
+        <input type="text" id="f-main" class="filter-input" placeholder="Autor*in od. Titel..." oninput="filterBooks()">
         <input type="text" id="f-gen" class="filter-input" placeholder="Schlagwort..." oninput="filterBooks()">
     </div>
 </div>
@@ -209,8 +209,6 @@
             });
             
             const data = await response.json();
-            
-            // Korrektur: Wir prüfen flexibel, ob die Daten in "books" liegen oder direkt das Array sind
             const results = data.books || (Array.isArray(data) ? data : []);
 
             if(results.length > 0) {
@@ -329,12 +327,10 @@
     }
 
     function filterBooks() {
-        const a = document.getElementById('f-auth').value.toLowerCase();
-        const t = document.getElementById('f-tit').value.toLowerCase();
+        const m = document.getElementById('f-main').value.toLowerCase();
         const s = document.getElementById('f-gen').value.toLowerCase();
         render(allBooks.filter(b => 
-            (b.author||'').toLowerCase().includes(a) && 
-            (b.title||'').toLowerCase().includes(t) && 
+            ((b.author||'').toLowerCase().includes(m) || (b.title||'').toLowerCase().includes(m)) && 
             (b.tags||'').toLowerCase().includes(s)
         ));
     }
