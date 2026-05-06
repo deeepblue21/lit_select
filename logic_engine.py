@@ -91,7 +91,7 @@ def analyze_input_book(book_title):
 def search_external_books_live(original_book, info, needed):
     if needed <= 0: return []
     results = []
-    print(f"📡 Web-Recherche: Suche {needed} Ergänzungen...") # Print wiederhergestellt
+    print(f"📡 Web-Recherche: Suche {needed} Ergänzungen...")
     
     if info['is_poetry']:
         query = f"Deutscher Lyrikpreis Peter-Huchel-Preis Neuerscheinungen 2024 2025"
@@ -105,7 +105,8 @@ def search_external_books_live(original_book, info, needed):
     prompt = (
         f"Kontext:\n{context}\n\nNenne exakt {needed} Buchempfehlungen (ab 2021).\n"
         f"STRIKTE REGEL: NICHT von {info['author']} und NICHT diese Titel: {forbidden}.\n"
-        f"Format: Titel | Autor | Begründung"
+        f"Format: Titel | Autor | Begründung\n"
+        f"WICHTIG: Nutze KEIN Markdown, KEINE Fettschrift (**) und KEINE Kursivschrift (*)."
     )
     
     res = openai_client.chat.completions.create(model="gpt-4o", messages=[{"role": "user", "content": prompt}])
@@ -113,7 +114,9 @@ def search_external_books_live(original_book, info, needed):
     for line in res.choices[0].message.content.strip().split('\n'):
         if '|' in line and len(results) < needed:
             p = line.split('|')
-            title, author = p[0].strip(), p[1].strip()
+            # Hier werden etwaige Markdown-Sterne entfernt
+            title = p[0].strip().replace('*', '')
+            author = p[1].strip().replace('*', '')
             
             if any(f.lower() in title.lower() for f in session_history): continue
             
@@ -124,7 +127,7 @@ def search_external_books_live(original_book, info, needed):
                     "year": data['year'], "publisher": data['publisher'],
                     "isbn": data['isbn'], "reason": p[2].strip(),
                     "cover_url": data['cover_url'], 
-                    "description": data['description'], # LÖSUNG: Beschreibung wurde hier vorher verschluckt!
+                    "description": data['description'],
                     "source": "live_web"
                 })
             else:
@@ -136,13 +139,13 @@ def get_recommendations(user_input):
     if user_input not in session_history:
         session_history.append(user_input)
         
-    print(f"🎯 Fokus: {info['anchor']} | Tempo: {info['tempo']}") # Print wiederhergestellt
+    print(f"🎯 Fokus: {info['anchor']} | Tempo: {info['tempo']}")
     final_results = []
     
     try:
         res_emb = openai_client.embeddings.create(input=f"{info['anchor']} {info['vibe']}", model="text-embedding-3-small")
         vector = res_emb.data[0].embedding
-        # Schwellenwert aus altem Code wiederhergestellt (0.42 statt 0.52)
+        # Schwellenwert auf 0.52 belassen wie im gelieferten Code
         db_res = supabase.rpc('match_books', {'query_embedding': vector, 'match_threshold': 0.52, 'match_count': 20}).execute()
         
         for b in db_res.data:
@@ -161,7 +164,7 @@ def get_recommendations(user_input):
             session_history.append(b['title'])
             if len(final_results) >= 2: break
     except Exception as e:
-        print(f"🚨 DB-Info: {e}") # Print wiederhergestellt
+        print(f"🚨 DB-Info: {e}")
 
     needed = 3 - len(final_results)
     if needed > 0:
